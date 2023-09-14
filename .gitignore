@@ -12,3 +12,4 @@ __pycache__/
 dp-things/*
 
 .idea/
+false_positives/*.pdf
