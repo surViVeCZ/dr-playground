@@ -12,6 +12,6 @@ class Config:
     COLLECTIONS = {
         # 'cesnet_2307': 'cesnet_2307',
         # "phishing_2307": "misp_2307",
-        "benign_2307": "benign_2307"
-        # "benign_cesnet_intersect_2307": "benign_cesnet_intersect_2307",
+        # "benign_2307": "benign_2307"
+        "benign_cesnet_union_2307": "benign_cesnet_union_2307"
     }
