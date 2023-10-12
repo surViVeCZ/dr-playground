@@ -25,7 +25,7 @@ def run_notebook_and_extract_fp(notebook_path, feature):
     return last_cell_output
 
 # List of features to drop
-features_to_drop = ['rdap_domain_age']  
+features_to_drop = ['rdap_domain_age', 'tls_root_cert_lifetime', 'rdap_domain_active_time', 'rdap_time_from_last_change']  
 
 # Dictionary to store false positives for each feature
 fp_values = {}
