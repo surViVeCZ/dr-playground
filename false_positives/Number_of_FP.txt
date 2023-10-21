@@ -1,8 +1,0 @@
-168 FP Počáteční stav
-
-160 FP po odstranění rdap_domain_age
-168 FP po odstranění rdap_domain_age + rdap_domain_active_time
-171 FP po odstranění rdap_domain_active_time
-171 FP po odstranění rdap_domain_age + rdap_domain_active_time + rdap_time_from_last_change
-288 FP po odstranění tls_root_cert_lifetime
-327 FP po odstranění všech RDAP
