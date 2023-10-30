@@ -125,7 +125,9 @@ class DomainAnalyzer:
         fig, ax = plt.subplots(figsize=(12, fig_height))
         ax.axis('off')  # Hide axes
         
-        colWidths = [max(df["Domain"].apply(len)*0.7) * 0.02 if column == "Domain" else 0.15 for column in df.columns]
+        colWidths = [max(df["Domain"].apply(len)*0.5) * 0.02 if column == "Domain" 
+             else 0.15 if column == "Detection Timestamp" 
+             else 0.10 for column in df.columns]
         
         tab = pd.plotting.table(ax, df, loc='upper center', colWidths=colWidths, cellLoc='center', rowLoc='center')
         tab.auto_set_font_size(True) 
@@ -157,5 +159,5 @@ class DomainAnalyzer:
 if __name__ == "__main__":
     analyzer = DomainAnalyzer()
     df = analyzer.process_domains("false_positives/highest_shap.txt")
-    analyzer.generate_report(df, 'false_positives/FP_check.pdf')
+    analyzer.generate_report(df, 'false_positives/VT/FP_check.pdf')
     analyzer.client.close()
