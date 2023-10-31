@@ -14,5 +14,6 @@ class Config:
         # "phishing_2307": "misp_2307",
         # "benign_2307": "benign_2307"
         # "benign_cesnet_union_2307": "benign_cesnet_union_2307"
-        "malware":"malware"
+        # "malware":"malware"
+        "misp_2307": "misp_2307",
     }
