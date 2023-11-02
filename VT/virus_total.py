@@ -35,8 +35,10 @@ class DomainAnalyzer:
         Read domains from a given file.
         """
         with open(filename, "r") as file:
-            lines = file.readlines()
-        return [line.split(",")[0].split(": ")[1] for line in lines]
+            lines = [line.strip() for line in file if line.strip()]
+        #this return is for FP, saved in highest shap txt
+        # return [line.split(",")[0].split(": ")[1] for line in lines]
+        return lines
 
     def check_domain(self, domain: str) -> Optional[vt.Object]:
         """
@@ -158,6 +160,11 @@ class DomainAnalyzer:
 
 if __name__ == "__main__":
     analyzer = DomainAnalyzer()
-    df = analyzer.process_domains("false_positives/highest_shap.txt")
-    analyzer.generate_report(df, 'false_positives/VT/FP_check.pdf')
+    #fp domains
+    # df = analyzer.process_domains("false_positives/highest_shap.txt")
+    # analyzer.generate_report(df, 'false_positives/VT/FP_check.pdf')
+
+    df = analyzer.process_domains("just_some_random_domain_list.txt")
+    analyzer.generate_report(df, 'random_domain_list_check.pdf')
+    
     analyzer.client.close()
