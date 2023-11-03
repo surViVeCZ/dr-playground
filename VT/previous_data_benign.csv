@@ -1,0 +1,2 @@
+Domain,Verdict,Detection Ratio,Detection Timestamp,Harmless,Malicious,Suspicious,Live Status
+0-courier.sandbox.push.apple.com,Benign,0/67,2023-07-12 03:00:08,67,0,0,Dead
