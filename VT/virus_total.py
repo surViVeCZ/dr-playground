@@ -1,134 +1,76 @@
 import os
 import subprocess
-from typing import List, Tuple, Optional
-
-import vt
+import requests
 import pandas as pd
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from dotenv import load_dotenv
-import requests
 from datetime import datetime
+from typing import List, Tuple, Optional
 
 
 class DomainAnalyzer:
     def __init__(self):
-        self.api_key = self.load_api_key()
-        self.headers = {
-            "x-apikey": self.api_key,
-            "Accept": "application/json"
-        }
+        self.api_key = self._load_api_key()
+        self.headers = self._create_headers()
 
     @staticmethod
-    def load_api_key():
-        load_dotenv()  # Load environment variables from .env file
-        api_key = os.getenv('VT_API_KEY')  # Get the API key from the environment variable
-
-        if api_key is None:
+    def _load_api_key():
+        load_dotenv()
+        api_key = os.getenv('VT_API_KEY')
+        if not api_key:
             raise ValueError("API key is not set. Please set the VT_API_KEY environment variable.")
-
         return api_key
-        
-    @staticmethod
-    def read_domains_from_file(filename: str) -> List[str]:
-        """
-        Read domains from a given file.
-        """
-        with open(filename, "r") as file:
-            lines = [line.strip() for line in file if line.strip()]
-        #this return is for FP, saved in highest shap txt
-        # return [line.split(",")[0].split(": ")[1] for line in lines]
-        return lines
 
-    def check_domain(self, domain: str) -> Optional[dict]:
+    def _create_headers(self):
+        return {"x-apikey": self.api_key, "Accept": "application/json"}
+
+    @staticmethod
+    def _read_domains(filename: str) -> List[str]:
+        with open(filename, "r") as file:
+            return [line.strip() for line in file if line.strip()]
+
+    def _check_domain(self, domain: str) -> Optional[dict]:
         url = f"https://www.virustotal.com/api/v3/domains/{domain}"
         response = requests.get(url, headers=self.headers)
-        
-        if response.status_code == 200:
-            return response.json()
-        else:
-            print(f"Error: Unable to fetch information for domain {domain}. {response.text}")
+        return response.json() if response.ok else None
+
+    def _get_verdict(self, stats: dict) -> str:
+        return "Malign" if stats.get('malicious', 0) > 0 or stats.get('suspicious', 0) > 1 else "Benign"
+
+    def _is_domain_live(self, domain: str) -> str:
+        try:
+            result = subprocess.run(['./livetest.sh', domain], capture_output=True, text=True)
+            return "Alive" if result.stdout.strip() == '1' else "Dead"
+        except Exception as e:
+            print(f"Error: {e}")
+            return "Unknown"
+
+    def _extract_data(self, domain: str, result: dict) -> Optional[Tuple]:
+        try:
+            attributes = result['data']['attributes']
+            stats = attributes['last_analysis_stats']
+            verdict = self._get_verdict(stats)
+            ratio = f"{stats['malicious']}/{stats['malicious'] + stats['harmless']}"
+            timestamp = self._format_timestamp(attributes.get('last_analysis_date', 0))
+            status = self._is_domain_live(domain)
+            return domain, verdict, ratio, timestamp, stats.get('harmless', 0), stats.get('malicious', 0), stats.get('suspicious', 0), status
+        except KeyError:
             return None
 
-    def get_verdict(self, analysis_stats: dict) -> str:
-        """
-        Determine the verdict of the analysis.
-        """
-        if analysis_stats.get('malicious', 0) > 0 or analysis_stats.get('suspicious', 0) > 1:
-            return "Malign"
-        else:
-            return "Benign"
+    @staticmethod
+    def _format_timestamp(timestamp: int) -> str:
+        return datetime.utcfromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S') if timestamp else 'N/A'
 
     def process_domains(self, filename: str) -> pd.DataFrame:
-        domains = self.read_domains_from_file(filename)
-        data = []
-
-        for domain in tqdm(domains, desc="Processing domains", unit="domain"):
-            result = self.check_domain(domain)
-            if result:
-                domain_data = self.extract_domain_data(domain, result)
-                if domain_data:  # Check if domain_data is not None
-                    data.append(domain_data)
-
-        columns = ["Domain", "Verdict", "Detection Ratio", "Detection Timestamp", "Harmless", "Malicious", "Suspicious", "Live Status"]
-        df = pd.DataFrame(data, columns=columns)
+        domains = self._read_domains(filename)
+        data = [(self._extract_data(domain, self._check_domain(domain))) for domain in tqdm(domains, desc="Processing domains")]
+        data = [d for d in data if d is not None]
+        df = pd.DataFrame(data, columns=["Domain", "Verdict", "Detection Ratio", "Detection Timestamp", "Harmless", "Malicious", "Suspicious", "Live Status"])
         df.sort_values(by=['Verdict', 'Live Status'], ascending=[False, False], inplace=True)
-        df.dropna(inplace=True)  # Remove rows with any None values
-
-        return df
-
-    def is_domain_live(self, domain: str) -> str:
-        """
-        Check if a domain is live by calling a bash script.
-        """
-        try:
-            # Running the bash script and capturing the output
-            result = subprocess.run(['./livetest.sh', domain], capture_output=True, text=True)
-            output = result.stdout.strip()
-            if output == '1':
-                return "Alive"
-            else:
-                return "Dead"
-        except Exception as e:
-            print(f"Error: Unable to check if domain {domain} is live. {e}")
-            return "Unknown"
-        
-    def extract_domain_data(self, domain: str, result: dict) -> Tuple:
-        """
-        Extract necessary data from the domain result.
-        """
-        try:
-            analysis_stats = result['data']['attributes']['last_analysis_stats']
-        except KeyError:
-            print(f"Error: Could not extract analysis stats for domain {domain}")
-            return None  # 
-
-        verdict = self.get_verdict(analysis_stats)
-        detection_ratio = f"{analysis_stats['malicious']}/{analysis_stats['malicious'] + analysis_stats['harmless']}"
-        
-        try:
-            detection_timestamp = result['data']['attributes']['last_analysis_date']
-            # Convert from UNIX epoch format to datetime object
-            dt_obj = datetime.utcfromtimestamp(detection_timestamp)
-            # Format to desired string format
-            formatted_timestamp = dt_obj.strftime('%Y-%m-%d %H:%M:%S')
-        except KeyError:
-            print(f"Error: Could not extract last analysis date for domain {domain}")
-            return None
-        except ValueError:
-            print(f"Error: Could not convert last analysis date for domain {domain}")
-            return None
-        
-        domain_status = self.is_domain_live(domain)
-        return domain, verdict, detection_ratio, formatted_timestamp, analysis_stats.get('harmless', 0), \
-               analysis_stats.get('malicious', 0), analysis_stats.get('suspicious', 0), domain_status
-
+        return df.dropna()
 
     def generate_report(self, df: pd.DataFrame, output_filename: str) -> None:
-        """
-        Generate a report based on the DataFrame and save it as a PDF.
-        """
-
         benign_count = len(df[df['Verdict'] == 'Benign'])
         malign_count = len(df[df['Verdict'] == 'Malign'])
         total_count = len(df)
@@ -139,7 +81,7 @@ class DomainAnalyzer:
         df = pd.concat([df, benign_row, malign_row], ignore_index=True)
         # Adjust the height of the figure based on the number of rows in the DataFrame
         fig_height = len(df) * 0.05
-        fig, ax = plt.subplots(figsize=(12, fig_height))
+        fig, ax = plt.subplots(figsize=(11, fig_height))
         ax.axis('off')  # Hide axes
         plt.tight_layout(pad=0.1)
         
@@ -175,6 +117,7 @@ class DomainAnalyzer:
         # Save the table as a PDF
         plt.savefig(output_filename, bbox_inches='tight', dpi=300)
         plt.close()
+
 
 if __name__ == "__main__":
     analyzer = DomainAnalyzer()
