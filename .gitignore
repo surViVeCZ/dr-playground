@@ -17,3 +17,4 @@ false_positives/force_plots/*.pdf
 false_positives/waterfall_plots/*.pdf
 
 CESNET/data/*
+CESNET/most_frequent/*
